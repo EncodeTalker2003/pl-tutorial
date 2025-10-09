@@ -1,6 +1,6 @@
 // Copyright (c) Runtime Verification, Inc. All Rights Reserved.
 
-module LAMBDA-SYNTAX
+module LAMBDA-MU-SYNTAX
   imports DOMAINS-SYNTAX
   imports ID-SYNTAX
 
@@ -25,10 +25,15 @@ module LAMBDA-SYNTAX
   syntax Exp ::= "letrec" Id Id "=" Exp "in" Exp [macro]
                | "mu" Id "." Exp
   rule letrec F:Id X = E in E' => let F = mu F . lambda X . E in E'
+
+  syntax Id ::= "$x" [token] | "$y" [token]
+  rule mu X . E
+    => (lambda $x . ((lambda X . E) (lambda $y . ($x $x $y))))
+       (lambda $x . ((lambda X . E) (lambda $y . ($x $x $y))))
 endmodule
 
-module LAMBDA
-  imports LAMBDA-SYNTAX
+module LAMBDA-MU
+  imports LAMBDA-MU-SYNTAX
   imports DOMAINS
 
   syntax Set ::= freeVars( Exp ) [function]
@@ -77,5 +82,4 @@ module LAMBDA
   rule if true  then E else _ => E
   rule if false then _ else E => E
 
-  rule mu X . E => E[(mu X . E) / X]
 endmodule
