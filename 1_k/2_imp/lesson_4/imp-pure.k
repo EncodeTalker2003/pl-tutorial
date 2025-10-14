@@ -48,7 +48,7 @@ module IMP-PURE
   rule false && _ => false
 // Block
   rule {S} => S
-  rule {} S => S
+  rule {} S => S 
 // Stmt
   rule <k> X = I:Int; => {} ...</k> <state>... X |-> (_ => I) ...</state>
   rule if (true)  S else _ => S

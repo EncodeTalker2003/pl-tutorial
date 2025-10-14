@@ -59,5 +59,5 @@ module LAMBDA-L2U
 
   syntax KVar ::= "$x" [token]
   rule <k> (callCC V:Val ~> K) => callcc(lambda $x . (V cc(K)))</k>
-  // rule <k> V:Val cc(.K) => V</k>
+
 endmodule
