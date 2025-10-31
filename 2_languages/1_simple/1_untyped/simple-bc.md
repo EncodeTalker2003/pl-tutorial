@@ -859,28 +859,40 @@ indeed very basic.  If we allowed break/continue of loops then we would need
 a completely different semantics, which would also involve the `control` cell.
 ```k
 
-  syntax KItem ::= (Map,K,ControlCellFragment,Stmt)
+  syntax KItem ::= (Map,Map,K,ControlCellFragment,Stmt)
+  syntax KItem ::= "pushEnv" Map
 
   rule <k> (while (E) S ~> K) => (if (E) S else {break;} continue;) </k>
 	   <control>
-	   	<lstack> .List => ListItem((Env, K, C, if (E) S else {break;})) ...</lstack>
-        C
+	     <lstack> .List => ListItem((Env, Env, K, C, if (E) S else {break;} continue;)) ...</lstack>
+         C
 	   </control>
 	   <env> Env </env>
 
+  rule <k> ((for (Start Cond; Step) S) => (Start ~> pushEnv Env ~> for (Start Cond; Step) S)) ~> _ </k>
+	   <env> Env </env>
+
+  rule <k> (pushEnv Env2 ~> for (_ Cond; Step) S ~> K) => (if (Cond) S else { break; } continue;) </k>
+	   <control>
+         <lstack> .List => ListItem((Env, Env2, K, C, Step; if (Cond) S else { break; } continue;)) ...</lstack>
+		 C
+	   </control>
+	   <env> Env </env>
+	
+
   rule <k> (continue; ~> _) => LoopBody </k>
 	   <control>
-	     <lstack> ListItem((Env, _, C, LoopBody))  ...</lstack>
+	     <lstack> ListItem((Env, _, _, C, LoopBody))  ...</lstack>
          (_ => C)
 	   </control>
 	   <env> _ => Env </env>
 
   rule <k> (break; ~> _ ) => K </k>
 	   <control>
-	   	 <lstack> ListItem((Env, K, C, _)) => .List ...</lstack>
+	   	 <lstack> ListItem((_, Env2, K, C, _)) => .List ...</lstack>
          (_ => C)
 	   </control>
-	   <env> _ => Env </env>
+	   <env> _ => Env2 </env>
 
 ```
 
