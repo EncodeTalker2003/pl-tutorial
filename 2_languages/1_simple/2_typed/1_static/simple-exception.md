@@ -113,7 +113,7 @@ program does not type by looking at the top of the `k` cells in
 its stuck configuration.
 
 ```k
-module SIMPLE-TYPED-EXCEPTION-SYNTAX
+module SIMPLE-EXCEPTION-SYNTAX
   imports DOMAINS-SYNTAX
 ```
 
@@ -134,7 +134,7 @@ The lists of types are useful for function arguments.
                 | Type "[" "]"
                 | "(" Type ")"             [bracket]
                 > Types "->" Type
-				| Types "->" Type "throws" Type       
+				| Types "->" Type "throws" Types
 
   syntax Types ::= List{Type,","}          [overload(exps)]
 ```
@@ -256,8 +256,8 @@ course, including the types of the involved variables.
 endmodule
 
 
-module SIMPLE-TYPED-EXCEPTION
-  imports SIMPLE-TYPED-EXCEPTION-SYNTAX
+module SIMPLE-EXCEPTION
+  imports SIMPLE-EXCEPTION-SYNTAX
   imports DOMAINS
 ```
 
@@ -341,7 +341,7 @@ subcells.
                       <k color="green"> $PGM:Stmt </k>
                       <tenv multiplicity="?" color="cyan"> .Map </tenv>
                       <returnType multiplicity="?" color="black"> void </returnType>
-					  <throwType color="purple"> .List </throwType>
+					  <throwTypes multiplicity="?" color="purple"> .Set </throwTypes>
                     </task>
                   </tasks>
 //                  <br/>
@@ -368,7 +368,7 @@ variables.  The third case reduces to the second, incrementally moving
 the array dimension into the type until the array becomes a simple
 variable.
 ```k
-  rule <task> <k> T:Type X:Id; => stmt ...</k> <throwType> _ </throwType> </task>
+  rule <task> <k> T:Type X:Id; => stmt ...</k> </task>
        <gtenv> Rho (.Map => X |-> T) </gtenv>
     requires notBool(X in keys(Rho))
   rule <k> T:Type X:Id; => stmt ...</k> <tenv> Rho => Rho[X <- T] </tenv>
@@ -403,17 +403,15 @@ include such a similar `return` statement here.  That's because
 the `return` statements type to `stmt` anyway, and the
 entire code of the function body needs to type anyway.
 ```k
-  rule <task> <k> T:Type F:Id(Ps:Params) S => getTypes(Ps)->T F; ...</k> <throwType> _ </throwType> </task>
+  rule <task> <k> T:Type F:Id(Ps:Params) S => getTypes(Ps)->T F; ...</k> </task>
        (.Bag => <task>
-               <k> mkDecls(Ps) S </k> <tenv> .Map </tenv> <returnType> T </returnType> 
-			   <throwType> .List </throwType>
+               <k> mkDecls(Ps) S </k> <tenv> .Map </tenv> <returnType> T </returnType> <throwTypes> .Set </throwTypes>
              </task>)
 
-  rule <task> <k> T:Type F:Id(Ps:Params) throws TE:Type S => (getTypes(Ps)->T throws TE) F; ...</k> <throwType> _ </throwType> </task>
-	   (.Bag => <task>
-			   <k> mkDecls(Ps) S </k> <tenv> .Map </tenv> <returnType> T </returnType>
-			   <throwType> TE </throwType>
-			 </task>)
+  rule <task> <k> T:Type F:Id(Ps:Params) throws Ts:Types S => getTypes(Ps)->T throws Ts F; ...</k> </task>
+       (.Bag => <task>
+               <k> mkDecls(Ps) S </k> <tenv> .Map </tenv> <returnType> T </returnType> <throwTypes> convertList2Set(Ts) </throwTypes>
+             </task>)
 ```
 
 ## Checking if `main()` exists}
@@ -426,7 +424,7 @@ generate a function task executing `main()` to ensure that it
 types (remove this task creation if you do not want your type system
 to reject programs without a `main` function).
 ```k
-  rule <task> <k> stmt => main(.Exps); </k> (.Bag => <tenv> .Map </tenv>) ...</task>
+  rule <task> <k> stmt => main(.Exps); </k> (.Bag => <tenv> .Map </tenv> <throwTypes> .Set </throwTypes>) </task>
 ```
 
 ## Collecting the terminated tasks
@@ -441,7 +439,7 @@ important to ensure that we only dissolve tasks containing a
 In the end, there should be no task cell left in the configuration
 when the program correctly type checks.
 ```k
-  rule <task>... <k> _:BlockOrStmtType </k> <tenv> _ </tenv>  ...</task> => .Bag
+  rule <task>... <k> _:BlockOrStmtType </k> <tenv> _ </tenv> ...</task> => .Bag
 ```
 
 ## Basic values
@@ -469,7 +467,7 @@ environment, too.
   rule <k> X:Id => T ...</k> <tenv> Rho </tenv> <gtenv>... X |-> T ...</gtenv>
     requires notBool(X in keys(Rho))
 
-  rule <task> <k> X:Id => T ...</k> <throwType> _ </throwType> </task> <gtenv>... X |-> T ...</gtenv>
+  rule <task> <k> X:Id => T ...</k> </task> <gtenv>... X |-> T ...</gtenv>
 ```
 
 ## Increment
@@ -560,21 +558,11 @@ is needed to handle the no-argument case:
   rule (Ts:Types -> T)(Ts) => T requires Ts =/=K .Types
   rule (void -> T)(.Types) => T
 
-  rule <k> (Ts:Types -> T throws T2:Type)(Ts) => T ...</k>
-       <throwType> ListItem(T2) => .List ...</throwType>
-  	requires Ts =/=K .Types
+  rule <k> (_ -> _ throws ((TT1, TTs:Types) => TTs))(_)  ... </k>
+       <throwTypes>... SetItem(TT1) ...</throwTypes>
 
-  rule <k> (void -> T throws T2:Type)(.Types) => T ...</k>
-	   <throwType> ListItem(T2) => .List ...</throwType>
-
-  rule <k> (Ts:Types -> _ throws T2:Type)(Ts) ...</k>
-	   <throwType> ListItem(T3) => .List ...</throwType>
-  	requires T2 =/=K T3 andBool Ts =/=K .Types
-
-  rule <k> (void -> _ throws T2:Type)(.Types) ...</k>
-	   <throwType> ListItem(T3) => .List ...</throwType>
-  	requires T2 =/=K T3
-	
+  rule (Ts:Types -> T throws .Types)(Ts) => T requires Ts =/=K .Types
+  rule (void -> T throws .Types)(.Types) => T
 ```
 The returned value must have the same type as the declared
 function return type.  If an empty return is encountered, than
@@ -599,7 +587,6 @@ exceptions can only have integer type.
 
   rule <task> <k> {S} => block ...</k> <tenv> Rho </tenv> R </task>
        (.Bag => <task> <k> S </k> <tenv> Rho </tenv> R </task>)
-
 ```
 
 ## Expression statement
@@ -624,39 +611,30 @@ any try-catch block (with the currently unchecked ‒also for
 simplicity‒ expectation that the caller functions would catch those
 exceptions).
 ```k
-
   rule <task> 
-         <k> try S1 catch (T:Type X:Id) { S2 } => { T X; S2 } ...</k>
-         <throwType> TL </throwType>
+         <k> try S1 catch (T:Type X:Id) {S} => {T X; S} ... </k>
+         <throwTypes> TTs </throwTypes>
 		 R
 	   </task>
-       (.Bag => <task>
-	   			  <k> S1 </k> 
-				  <throwType> ListItem(T) TL </throwType>
+	   (.Bag => <task>
+	              <k> S1 </k> 
+				  <throwTypes> SetItem(T) TTs </throwTypes>
 				  R
-				</task> )
+	           </task>)
 
   rule <task> 
-         <k> try S1 catch (T:Type X:Id) { } => { T X; } ...</k>
-         <throwType> TL </throwType>
-		 <tenv> Rho </tenv>
+         <k> try S1 catch (T:Type X:Id) { } => {T X;} ... </k>
+         <throwTypes> TTs </throwTypes>
 		 R
 	   </task>
-       (.Bag => <task>
-	   			  <k> S1 </k> 
-				  <throwType> ListItem(T) TL </throwType>
-				  <tenv> Rho </tenv>
+	   (.Bag => <task>
+	              <k> S1 </k> 
+				  <throwTypes> SetItem(T) TTs </throwTypes>
 				  R
-				</task> )
-
+	           </task>)
 
   rule <k> throw T:Type; => stmt ...</k>
-       <throwType> ListItem(T) => .List ...</throwType>
-
-  rule <k> throw T:Type; ...</k>
-       <throwType> ListItem(T2) => .List ...</throwType>
-	requires T =/=K T2
-  
+       <throwTypes>... SetItem(T) ...</throwTypes>
 ```
 
 ## Concurrency
@@ -668,7 +646,7 @@ Same like with the functions above, we do not check for thrown
 exceptions which are not caught.
 ```k
   rule <k> spawn S => int ...</k> <tenv> Rho </tenv>
-       (.Bag => <task> <k> S </k> <tenv> Rho </tenv> <throwType> .List </throwType> </task>)
+       (.Bag => <task> <k> S </k> <tenv> Rho </tenv> </task>)
   rule join int; => stmt
   rule acquire _:Type; => stmt
   rule release _:Type; => stmt
@@ -708,6 +686,10 @@ The function `getTypes` is the same as in SIMPLE typed dynamic.
   rule getTypes(T:Type _:Id) => T, .Types   // I would like to not use .Types
   rule getTypes(T:Type _:Id, P, Ps) => T, getTypes(P,Ps)
   rule getTypes(.Params) => void, .Types
+
+  syntax Set ::= convertList2Set(Types) [function]
+  rule convertList2Set(T:Type, Ts:Types) => SetItem(T) convertList2Set(Ts)
+  rule convertList2Set(.Types) => .Set
 
 endmodule
 ```
