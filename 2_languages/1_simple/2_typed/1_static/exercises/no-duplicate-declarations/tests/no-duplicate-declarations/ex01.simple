@@ -1,8 +1,4 @@
-int f(int x) {
-  int x=1;
-  return x;
-}
-
 void main() {
-  int y=f(1);
+  int x=0;
+  int x=1;
 }
