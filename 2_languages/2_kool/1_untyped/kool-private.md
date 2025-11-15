@@ -402,6 +402,16 @@ definition.
        <nextLoc> L:Int => L +Int 1 +Int N </nextLoc>
     requires N >=Int 0
 
+  context private var _:Id[HOLE];
+
+  rule <k> private var X:Id[N:Int]; => .K ...</k>
+       <env> Env => Env[X <- L] </env>
+       <store>... .Map => L |-> array(L +Int 1, N)
+                          (L +Int 1) ... (L +Int N) |-> undefined ...</store>
+       <nextLoc> L:Int => L +Int 1 +Int N </nextLoc>
+       <privateEnv>... .Set => SetItem(X) </privateEnv>
+    requires N >=Int 0
+
 
   syntax Id ::= "$1" [token] | "$2" [token]
   rule var X:Id[N1:Int, N2:Int, Vs:Vals];
