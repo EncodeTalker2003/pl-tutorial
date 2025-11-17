@@ -47,6 +47,7 @@ constructs.
                 | Type "[" "]"
                 | "(" Type ")"           [bracket]
                 > Types "->" Type
+				> Types "->" Type "throws" Types
   syntax Types ::= List{Type,","}        [overload(exps)]
 ```
 
@@ -58,6 +59,7 @@ constructs.
 
   syntax Stmt ::= Type Exps ";"
                 | Type Id "(" Params ")" Block
+				| Type Id "(" Params ")" "throws" Types Block
 ```
 
 ## Expressions
@@ -152,7 +154,7 @@ the end of this module).
 ```k
   syntax Val ::= Int | Bool | String
                | array(Type,Int,Int)
-               | lambda(Type,Params,Stmt)
+               | lambda(Type,Types,Params,Stmt)
   syntax Exp ::= Val
   syntax Exps ::= Vals
   syntax KResult ::= Val
@@ -183,18 +185,16 @@ function body encounters an explicit `return` statement.
                     <thread multiplicity="*" color="yellow" type="Map">
                       <id color="pink"> 0 </id>
                       <k color="green"> ($PGM:Stmt ~> execute) </k>
-//                      <br/>
                       <control color="cyan">
                         <fstack color="blue"> .List </fstack>
                         <xstack color="purple"> .List </xstack>
+						<throwTypes color="DarkOrange"> .Types </throwTypes>
                         <returnType color="LimeGreen"> void </returnType>
                        </control>
-//                      <br/>
                       <env color="violet"> .Map </env>
                       <holds color="black"> .Map </holds>
                     </thread>
                   </threads>
-//                  <br/>
                   <genv color="pink"> .Map </genv>
                   <store color="white"> .Map </store>
                   <busy color="cyan">.Set</busy>
@@ -273,7 +273,12 @@ make sure that parameters are well typed when the function is invoked.
 ```k
   rule <k> T:Type F:Id(Ps:Params) S => .K ...</k>
        <env> Env => Env[F <- L] </env>
-       <store>... .Map => L |-> lambda(T, Ps, S) ...</store>
+       <store>... .Map => L |-> lambda(T, .Types, Ps, S) ...</store>
+       <nextLoc> L => L +Int 1 </nextLoc>
+
+  rule <k> T:Type F:Id(Ps:Params) throws TS S => .K ...</k>
+       <env> Env => Env[F <- L] </env>
+       <store>... .Map => L |-> lambda(T, TS, Ps, S) ...</store>
        <nextLoc> L => L +Int 1 </nextLoc>
 ```
 
@@ -354,25 +359,40 @@ Note that the operation `mkDecls` now declares properly typed
 instantiated variables, and that the semantics of `return` also
 checks that that type of the returned value is expected one.
 ```k
-  syntax KItem ::= (Type,Map,K,ControlCellFragment)
+  syntax KItem ::= (Type,Map,K,List,Types,ControlCellFragment)  
 
-  rule <k> lambda(T,Ps,S)(Vs:Vals) ~> K => mkDecls(Ps,Vs) S return; </k>
+  rule <k> lambda(T,TS,Ps,S)(Vs:Vals) ~> K => mkDecls(Ps,Vs) S return; </k>
        <control>
-         <fstack> .List => ListItem((T',Env,K,C)) ...</fstack>
+         <fstack> .List => ListItem((T',Env,K,XST,TS',C)) ...</fstack>
+		 <xstack> XST => .List </xstack>
+		 <throwTypes> TS' => TS </throwTypes>
          <returnType> T' => T </returnType>
-         C
+		 C
        </control>
        <env> Env => GEnv </env>
        <genv> GEnv </genv>
 
   rule <k> return V:Val; ~> _ => V ~> K </k>
        <control>
-         <fstack> ListItem((T',Env,K,C)) => .List ...</fstack>
+         <fstack> ListItem((T',Env,K,XST,TS,C)) => .List ...</fstack>
          <returnType> T => T' </returnType>
-         (_ => C)
+		 <xstack> _ => XST </xstack>
+		 <throwTypes> _ => TS </throwTypes>
+		 (_ => C)
        </control>
        <env> _ => Env </env>
     requires typeOf(V) ==K T   // check the type of the returned value
+
+  rule <k> throw V:Val; ~> _ </k>
+       <control>
+         <fstack> ListItem((T',Env,_,XST,TS',C)) => .List ...</fstack>
+         <xstack> .List => XST </xstack>
+		 <throwTypes> TS => TS' </throwTypes>
+         <returnType> _ => T' </returnType>
+		 (_ => C)
+       </control>
+       <env> _ => Env </env>
+    requires findExist(typeOf(V), TS)   // check the type of the returned value
 ```
 Like the `undefined` above, `nothing` also gets
 tagged with a type now.  The empty `return` statement is
@@ -596,7 +616,8 @@ Sequences of locations.
   rule typeOf(_:Bool) => bool
   rule typeOf(_:String) => string
   rule typeOf(array(T,_,_)) => (T[])   // () needed! K parses [] as "no tags"
-  rule typeOf(lambda(T,Ps,_)) => getTypes(Ps) -> T
+  rule typeOf(lambda(T,.Types,Ps,_)) => getTypes(Ps) -> T
+  rule typeOf(lambda(T,TS,Ps,_)) => getTypes(Ps) -> T throws TS requires TS =/=K .Types
   rule typeOf(undefined(T)) => T
   rule typeOf(nothing(T)) => T
 ```
@@ -606,5 +627,15 @@ List of types of a parameter.
   rule getTypes(T:Type _:Id) => T, .Types   // I would like to not use .Types
   rule getTypes(T:Type _:Id, P, Ps) => T, getTypes(P,Ps)
   rule getTypes(.Params) => void, .Types
+
+  syntax Set ::= convertList2Set(Types) [function]
+  rule convertList2Set(T:Type, Ts:Types) => SetItem(T) convertList2Set(Ts)
+  rule convertList2Set(.Types) => .Set
+
+  syntax Bool ::= findExist(Type,Types) [function]
+  rule findExist(T:Type, T:Type, _:Types) => true
+  rule findExist(T1:Type, T2:Type, Ts:Types) => findExist(T1, Ts) requires T1 =/=K T2
+  rule findExist(T1:Type, T2:Type) => T1 =/=K T2
+  rule findExist(_:Type, .Types) => false
 endmodule
 ```
