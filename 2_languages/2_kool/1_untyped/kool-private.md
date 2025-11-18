@@ -247,7 +247,6 @@ Old desugaring rules, from SIMPLE
   rule var X::Id = E; => var X; X = E;                              [anywhere]
   rule private var E1::Exp, E2::Exp, Es::Exps; => private var E1; private var E2, Es;  [anywhere]
   rule private var X::Id = E; => private var X; X = E;               [anywhere]
-  rule private var X::Id; => var X; makePrivate(X);                [anywhere]
 ```
 New desugaring rule
 ```k
@@ -390,7 +389,10 @@ definition.
        <store>... .Map => L |-> undefined ...</store>
        <nextLoc> L:Int => L +Int 1 </nextLoc>
 
-  rule <k> makePrivate(X:Id); => .K ...</k>
+  rule <k> private var X:Id; => .K ...</k>
+       <env> Env => Env[X <- L] </env>
+       <store>... .Map => L |-> undefined ...</store>
+       <nextLoc> L:Int => L +Int 1 </nextLoc>
        <privateEnv>... .Set => SetItem(X) </privateEnv>
 
   context var _:Id[HOLE];
