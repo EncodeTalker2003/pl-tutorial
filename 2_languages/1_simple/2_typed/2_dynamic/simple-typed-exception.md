@@ -118,7 +118,7 @@ Like in the static semantics, there is no need for lists of identifiers
                 | "return" Exp ";"                      [strict]
                 | "return" ";"
                 | "try" Block "catch" "(" Param ")" Block
-            | "throw" Exp ";"                       [strict]
+                | "throw" Exp ";"                       [strict]
                 | "join" Exp ";"                        [strict]
                 | "acquire" Exp ";"                     [strict]
                 | "release" Exp ";"                     [strict]

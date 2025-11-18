@@ -342,7 +342,6 @@ subcells.
 					  <declared multiplicity="?" color="purple"> .Set </declared>
                     </task>
                   </tasks>
-//                  <br/>
                   <gtenv color="blue"> .Map </gtenv>
                 </T>
 ```

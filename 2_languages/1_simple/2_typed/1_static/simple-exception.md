@@ -344,7 +344,6 @@ subcells.
 					  <throwTypes multiplicity="?" color="purple"> .Set </throwTypes>
                     </task>
                   </tasks>
-//                  <br/>
                   <gtenv color="blue"> .Map </gtenv>
                 </T>
 ```
