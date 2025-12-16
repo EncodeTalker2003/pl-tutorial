@@ -374,7 +374,7 @@ a constructor for function types:
                 > let_in__FUN-SPAWN-COMMON
                   letrec_in__FUN-SPAWN-COMMON
                   if_then_else__FUN-SPAWN-COMMON
-                  join__FUN-SPAWN-COMMON
+				> join__FUN-SPAWN-COMMON
 				> spawn__FUN-SPAWN-COMMON
                 > _;__FUN-SPAWN-COMMON
                 > fun__FUN-SPAWN-COMMON
